@@ -1,4 +1,9 @@
 /********************************************************************/
+#include <IRremote.h>
+#include <IRremoteInt.h>
+#include <boarddefs.h>
+#include <ir_Lego_PF_BitStreamEncoder.h>
+
 // First we include the libraries
 #include <OneWire.h> 
 #include <DallasTemperature.h>
@@ -31,14 +36,19 @@ char pass[] = "c7o2r1e4";  // your network password
 int status = WL_IDLE_STATUS;     // the Wifi radio's status
 WiFiClient wifi;
 HttpClient client = HttpClient(wifi, "api.heclouds.com");
-HttpClient client1 = HttpClient(wifi, "api.heclouds.com");
-//HttpClient client = HttpClient(wifi, "47.100.191.229",80);
-//HttpClient client1 = HttpClient(wifi, "47.100.191.229",80);
+int RECV_PIN = 11;        
+IRrecv irrecv(RECV_PIN); 
+decode_results results;
+
+IRsend irsend;  
+
+bool flag=0;
+int limit=60;
 void setup(void) 
 { 
  // start serial port 
- Serial.begin(9600); 
- sensors.begin(); 
+  Serial.begin(9600); 
+  irrecv.enableIRIn();
   while ( status != WL_CONNECTED) {
     Serial.print("Attempting to connect to WPA SSID: ");
     Serial.println(ssid);
@@ -104,93 +114,128 @@ void loop(void)
 	}
 
   int humidity    = bits[0]; 
+  int temperature = bits[2]; 
+  Serial.print(flag);
+  if(humidity>=limit&&flag){
+    Serial.print("\nsignalSend2:");
+    controlHumidifier();
+    flag=0;
+  }
+  if(humidity<limit&&!flag){
+    Serial.print("\nsignalSend2:");
+    controlHumidifier();
+    flag=1;
+  }
   Serial.print("\n");
   Serial.print("Humidity (%): ");
   Serial.println((float)humidity, 2);
 
- sensors.requestTemperatures(); // Send the command to get temperature readings 
+  
  Serial.print("Temperature is: "); 
- Serial.print(sensors.getTempCByIndex(0)-2); // Why "byIndex"?  
+ Serial.print(temperature); // Why "byIndex"?  
  
  Serial.print("\n");
-   // You can have more than one DS18B20 on the same bus.  
-   // 0 refers to the first IC on the wire 
    
  if ((status == WL_CONNECTED)) {
    
-    // StaticJsonDocument<256> doc;
-    // JsonObject root = doc.to<JsonObject>();
+    String temp=String(temperature);
     
-    // JsonArray datastreams = root.createNestedArray("datastreams");
-    
-    // JsonObject temperature = datastreams.createNestedObject();
-    // temperature["id"]= "temperature";
-    // JsonArray datapoints1 = temperature.createNestedArray("datapoints");
-    // JsonObject value1 = datapoints1.createNestedObject();
-    // value1["value"]=String(sensors.getTempCByIndex(0)-2);
-    
-    
-    // JsonObject moisture =  datastreams.createNestedObject();
-    // moisture["id"]= "moisture";
-    // JsonArray datapoints2 = moisture.createNestedArray("datapoints");
-    // JsonObject value2 = datapoints2.createNestedObject();
-    // value2["value"]=String(humidity);
-   
-    String temp=String(sensors.getTempCByIndex(0)-2);
-    float hum=(float)humidity;
-    String humidity=String(hum);
     String output="";
-    //serializeJson(root, output);
     output="{\"datastreams\":[{\"id\":\"temperature\",\"datapoints\":[{\"value\":\""+temp+"\"}]}]}\n";
     client.beginRequest();
     client.post("/devices/553304452/datapoints");
-    //client.post("/");
     client.sendHeader("api-key", "V5BBXsih6tOyXroC==dwuTCIRtA=");
-    
     client.sendHeader("Content-Type", "application/json");
     client.sendHeader("Content-Length", output.length());
     client.beginBody();
-    
-    //serializeJsonPretty(root,Serial);
     client.print(output);
-   // client.print("\n");
     client.endRequest();
-    
     int statusCode = client.responseStatusCode();
-    
     String response = client.responseBody();
     Serial.print(statusCode) ;
     Serial.print(response );
+    Serial.print("\n");
     client.flush();
     client.stop();
-    
     delay(1000);
+  
+    
+    
+    
+    
+    
+    
+    
+
+    
+
+      
+      
+      
+   
+  }
+  if ((status == WL_CONNECTED)) {
+   
+    
+    float hum=(float)humidity;
+    String humidity=String(hum);
     String output1="";
     output1="{\"datastreams\":[{\"id\":\"moisture\",\"datapoints\":[{\"value\":\""+humidity+"\"}]}]}\n";
-    //output1=output;
-    client1.beginRequest();
-    client1.post("/devices/553304452/datapoints");
-    //client1.post("/");
-    client1.sendHeader("api-key", "V5BBXsih6tOyXroC==dwuTCIRtA=");
+    client.beginRequest();
+    client.post("/devices/553304452/datapoints");
+    client.sendHeader("api-key", "V5BBXsih6tOyXroC==dwuTCIRtA=");
+    client.sendHeader("Content-Type", "application/json");
+    client.sendHeader("Content-Length", output1.length());
+    client.beginBody();
+    client.print(output1);
+    client.endRequest();
+    int statusCode1 = client.responseStatusCode();
+    String response1 = client.responseBody();
+    Serial.print(statusCode1) ;
+    Serial.print(response1);
+    Serial.print("\n");
+    client.flush();
+    client.stop();
+    delay(1000);
     
-    client1.sendHeader("Content-Type", "application/json");
-    client1.sendHeader("Content-Length", output1.length());
-    client1.beginBody();
     
-    //serializeJsonPretty(root,Serial);
-    client1.print(output1);
-   // client.print("\n");
-    client1.endRequest();
     
-    statusCode = client.responseStatusCode();
     
-    response = client.responseBody();
-    Serial.print(statusCode) ;
-    Serial.print(response );
-    client1.flush();
-    client1.stop();
     
-    delay(1000); 
+    
+    
+    
+
+    
+
+      
+      
+      
+   
+  }
+  if ((status == WL_CONNECTED)) {
+   
+    
+   
+    client.beginRequest();
+    client.get("/devices/553304452/datastreams/threshold");
+    client.sendHeader("api-key", "V5BBXsih6tOyXroC==dwuTCIRtA=");
+    client.endRequest();
+    int statusCode2 = client.responseStatusCode();
+    String ans=client.responseBody();
+    char response2[ans.length()+1];
+    strcpy(response2, ans.c_str());
+    limit=10*(response2[114]-'0')+(response2[115]-'0');
+    Serial.print(statusCode2);
+    Serial.print("\n");
+    Serial.print(limit);
+    Serial.print("\n");
+    client.flush();
+    client.stop();
+    delay(1000);
+    
+    
+    
     
     
     
@@ -205,4 +250,40 @@ void loop(void)
    
   }
    delay(1000); 
+   
+  
+}
+
+void controlHumidifier(){
+  Serial.print("\nsignalSend1:");
+  unsigned long data=0x1FE40BF;
+  int nbits=32;
+  // Set IR carrier frequency
+	irsend.enableIROut(38);
+
+	// Header
+	irsend.mark(9000);
+	irsend.space(4500);
+
+	// Data
+	for (unsigned long  mask = 1UL << (nbits - 1);  mask;  mask >>= 1) {
+		if (data & mask) {
+			irsend.mark(560);
+			irsend.space(1690);
+		} else {
+			irsend.mark(560);
+			irsend.space(560);
+		}
+	}
+
+	// Footer
+	irsend.mark(560);
+	for(int i=0;i<20;i++){
+	irsend.mark(9000);
+	irsend.space(2250);
+	irsend.mark(560);
+	irsend.space(98190);
+	//end =time(NULL);  
+	}
+	irsend.space(0);  // Always end with the LED off
 }
